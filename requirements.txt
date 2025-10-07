@@ -1,0 +1,65 @@
+
+
+# Medical Image Processing
+monai
+nibabel
+pydicom
+simpleitk
+medpy
+torchio
+
+# Diffusion Model Related
+diffusers
+denoising-diffusion-pytorch
+accelerate
+
+# Transformer and Attention Mechanisms
+transformers
+timm
+einops
+einops-exts
+
+# Deep Learning Training Tools
+pytorch-lightning
+tensorboard
+tensorboardx
+torchmetrics
+torchsummary
+
+# Scientific Computing Base Libraries
+# numpy
+scipy
+pandas
+scikit-learn
+scikit-image
+
+# Image Processing and Computer Vision
+opencv-python
+imageio
+Pillow
+pywavelets
+
+# Data Processing and Augmentation
+batchgenerators
+
+# Visualization
+matplotlib
+seaborn
+
+# Data Formats and Configuration
+PyYAML
+h5py
+
+# Network and Authentication
+huggingface-hub
+requests
+
+# Utility Libraries
+tqdm
+fire
+click
+
+# Jupyter Notebook Support
+jupyter
+ipython
+notebook

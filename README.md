@@ -1,28 +1,89 @@
 
-# 2D-Medical-Denoising-Diffusion-Probabilistic-Model
-**This is the repository for the paper "[2D Medical Image Synthesis Using Transformer-based Denoising Diffusion Probabilistic Model](https://iopscience.iop.org/article/10.1088/1361-6560/acca5c/meta)".**
+# 2D医学图像去噪扩散概率模型
+**这是论文"[基于Transformer的去噪扩散概率模型用于2D医学图像合成](https://iopscience.iop.org/article/10.1088/1361-6560/acca5c/meta)"的代码仓库。**
 
-The codes were created based on [image-guided diffusion](https://github.com/openai/guided-diffusion), [SwinUnet](https://github.com/HuCaoFighting/Swin-Unet), and [Monai](https://monai.io/)
+代码基于 [image-guided diffusion](https://github.com/openai/guided-diffusion)、[SwinUnet](https://github.com/HuCaoFighting/Swin-Unet) 和 [Monai](https://monai.io/) 创建
 
-Updated 1.1:
-With a modified variational bound loss code following the image-guided diffusion, we are able to use 1000 training timestep and 50 inference timesteps (instead of 4000 training and 500 inference timesteps in the paper) and stablize the training process to generate the fancy images! **Maybe this is not very important for 2D synthesis, but it is critical for 3D synthesis!!**
-The details are shown in our another paper "[Synthetic CT Generation from MRI using 3D Transformer-based Denoising Diffusion Model](https://arxiv.org/abs/2305.19467)"
+版本更新 1.1：
+通过修改变分界损失代码（遵循image-guided diffusion），我们能够使用1000个训练时间步和50个推理时间步（而不是论文中的4000个训练时间步和500个推理时间步），并稳定训练过程以生成精美的图像！**也许这对2D合成不是很重要，但对3D合成至关重要！！**
+详细信息请参见我们的另一篇论文"[使用基于3D Transformer的去噪扩散模型从MRI生成合成CT](https://arxiv.org/abs/2305.19467)"
 
-# Required packages
+# 依赖包
 
-The requires packages are in test_env.yaml.
+项目依赖包已列在`requirements.txt`文件中。
 
-Create an environment using Anaconda:
+## Python环境要求
+- Python 3.8 或更高版本
+- CUDA 11.1 或更高版本（用于GPU加速）
+
+## 安装方法
+
+### 方法1：使用自动安装脚本（最简单）
+我们提供了一个自动化的环境设置脚本：
+```bash
+python setup_env.py
 ```
-conda env create -f \your directory\test_env.yaml
+该脚本将：
+- 检查Python版本是否满足要求
+- 可选创建虚拟环境
+- 自动安装所有依赖包
+- 验证安装结果
+- 检测GPU可用性
+
+### 方法2：手动使用pip安装
+```bash
+# 创建虚拟环境（推荐）
+python -m venv tdm_env
+# 激活虚拟环境
+# Windows:
+tdm_env\Scripts\activate
+# Linux/Mac:
+source tdm_env/bin/activate
+
+# 安装依赖包
+pip install -r requirements.txt
 ```
 
+### 方法3：使用conda安装（保留选项）
+如果你更喜欢使用conda，也可以使用原有的环境配置：
+```bash
+conda env create -f test_env.yaml
+conda activate DL
+```
 
-# Usage
+## 快速开始
 
-The usage is in the jupyter notebook TDM main.ipynb. Including how to build a diffusion process, how to build a network, and how to call the diffusion process to train, and sample new synthetic images. However, we give simple example below:
+环境安装完成后，您可以按照以下步骤快速开始：
 
-**Create diffusion**
+1. **启动Jupyter Notebook**
+   ```bash
+   jupyter notebook "TDM main.ipynb"
+   ```
+
+2. **或者直接在Python中使用**
+   ```python
+   # 导入必要的模块
+   from diffusion.Create_diffusion import *
+   from network.Diffusion_model_transformer import *
+   
+   # 按照下面的使用方法章节进行操作
+   ```
+
+3. **验证GPU可用性**
+   ```python
+   import torch
+   print(f"CUDA可用: {torch.cuda.is_available()}")
+   if torch.cuda.is_available():
+       print(f"GPU数量: {torch.cuda.device_count()}")
+       print(f"当前GPU: {torch.cuda.get_device_name(0)}")
+   ```
+
+
+# 使用方法
+
+使用方法在jupyter notebook文件TDM main.ipynb中。包括如何构建扩散过程、如何构建网络、如何调用扩散过程进行训练以及采样新的合成图像。不过，我们在下面给出简单示例：
+
+**创建扩散过程**
 ```
 from diffusion.Create_diffusion import *
 from diffusion.resampler import *
@@ -41,7 +102,7 @@ diffusion = create_gaussian_diffusion(
 schedule_sampler = UniformSampler(diffusion)
 ```
 
-**Create network**
+**创建网络**
 ```
 attention_resolutions="64,32,16,8"
 attention_ds = []
@@ -68,7 +129,7 @@ model = SwinVITModel(
     )
 ```
 
-**Train the diffusion**
+**训练扩散模型**
 ```
 batch_size = 10
 t, weights = schedule_sampler.sample(batch_size, device)
@@ -76,7 +137,7 @@ all_loss = diffusion.training_losses(model,traindata,t=t)
 loss = (all_loss["loss"] * weights).mean()
 ```
 
-**generate new synthetic images**
+**生成新的合成图像**
 ```
 num_sample = 10
 image_size = 256
@@ -84,7 +145,7 @@ x = diffusion.p_sample_loop(model,(num_sample, 1, image_size, image_size),clip_d
 ```
 
 
-# Visual examples
+# 可视化示例
 
 ![image_1](https://github.com/shaoyanpan/2D-Medical-Denoising-Diffusion-Probabilistic-Model-/assets/89927506/3a814bd3-1107-4d23-b295-9088530754d8)
 ![image_2](https://github.com/shaoyanpan/2D-Medical-Denoising-Diffusion-Probabilistic-Model-/assets/89927506/cfb2d2c8-f611-497c-93ff-99b7f1ad27a7)

@@ -11,6 +11,8 @@ from torch.utils.data import Dataset, DataLoader
 import glob
 import scipy.io
 import os
+import json
+import matplotlib.pyplot as plt
 os.environ["KMP_DUPLICATE_LIB_OK"]="TRUE"
 import numpy as np
 from random import randint
@@ -295,8 +297,25 @@ def train(model, optimizer,data_loader1, loss_history):
                   ' (' + '{:3.0f}'.format(100 * i / len(data_loader1)) + '%)]  Loss: ' +
                   '{:6.7f}'.format(np.nanmean(loss_sum)))
         if i % 150 == 0:
-            data = {"img":traindata.cpu().numpy()}
-            scipy.io.savemat(path+ 'train_example_epoch'+str(epoch)+'.mat',data)
+            # 保存训练样例为PNG图片
+            traindata_np = traindata.cpu().numpy()
+            # 保存前几个样本的图片
+            num_samples_to_save = min(4, traindata_np.shape[0])
+            for idx in range(num_samples_to_save):
+                img = traindata_np[idx, 0]  # 取第一个通道
+                img = (img + 1) / 2  # 从[-1,1]转换到[0,1]
+                img = np.clip(img, 0, 1)  # 确保在有效范围内
+                
+                img_path = os.path.join(path, f'train_example_epoch{epoch}_batch{i}_sample{idx}.png')
+                plt.figure(figsize=(8, 8))
+                plt.imshow(img, cmap='gray')
+                plt.title(f'Training Sample - Epoch {epoch}, Batch {i}, Sample {idx}')
+                plt.axis('off')
+                plt.tight_layout()
+                plt.savefig(img_path, dpi=150, bbox_inches='tight')
+                plt.close()
+            
+            print(f"训练样例图片已保存到: {path}")
         
     average_loss = np.nanmean(loss_sum) 
     loss_history.append(average_loss)
@@ -321,10 +340,38 @@ def evaluate(model,epoch,path):
             #     size=[BATCH_SIZE_TRAIN, 1, image_size, image_size], device=device)
             # x_clean = sampler(noisyImage)
             img.append(x_clean.cpu().numpy())
-        data = {"img":img}
-        print(str(time.time()-aa))
-        scipy.io.savemat(path+ 'test_example_epoch'+str(epoch)+'.mat',data)
-        # scipy.io.savemat(path+ 'final_test_play.mat',data)
+        # 保存生成图片为PNG格式
+        img_np = np.array(img)
+        for sample_idx, sample_img in enumerate(img_np):
+            for batch_idx in range(sample_img.shape[0]):
+                single_img = sample_img[batch_idx, 0]  # 取第一个通道
+                single_img = (single_img + 1) / 2  # 从[-1,1]转换到[0,1]
+                single_img = np.clip(single_img, 0, 1)  # 确保在有效范围内
+                
+                img_path = os.path.join(path, f'test_example_epoch{epoch}_sample{sample_idx}_batch{batch_idx}.png')
+                plt.figure(figsize=(8, 8))
+                plt.imshow(single_img, cmap='gray')
+                plt.title(f'Generated Sample - Epoch {epoch}, Sample {sample_idx}, Batch {batch_idx}')
+                plt.axis('off')
+                plt.tight_layout()
+                plt.savefig(img_path, dpi=150, bbox_inches='tight')
+                plt.close()
+        
+        # 保存生成结果的日志
+        result_data = {
+            "epoch": epoch,
+            "generation_time": time.time() - aa,
+            "num_samples": len(img),
+            "image_shape": img_np[0].shape if len(img_np) > 0 else None,
+            "output_path": path
+        }
+        
+        log_path = os.path.join(path, f'test_results_epoch{epoch}.json')
+        with open(log_path, 'w', encoding='utf-8') as f:
+            json.dump(result_data, f, indent=2, ensure_ascii=False)
+        
+        print(f"生成结果已保存到PNG格式: {path}")
+        print(f"生成日志已保存到: {log_path}")
 
 
 

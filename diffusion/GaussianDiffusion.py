@@ -11,7 +11,7 @@ import math
 import numpy as np
 import torch as th
 import torch.nn.functional as F
-
+from matplotlib import pyplot as plt
                 
 def normal_kl(mean1, logvar1, mean2, logvar2):
     """
@@ -645,6 +645,30 @@ class GaussianDiffusion:
             (t != 0).float().view(-1, *([1] * (len(x.shape) - 1)))
         )  # no noise when t == 0
         sample = mean_pred + nonzero_mask * sigma * noise
+        # # 处理4张图片并拼接显示
+        # pred_xstart_np = out["pred_xstart"].cpu().numpy()
+        
+        # # 检查图片数量
+        # batch_size = pred_xstart_np.shape[0]
+        # if batch_size >= 4:
+        #     # 提取前4张图片并拼接
+        #     images_to_concat = []
+        #     for i in range(4):
+        #         img = pred_xstart_np[i, 0, :, :].T  # 取第i张图片并转置
+        #         images_to_concat.append(img)
+            
+        #     # 水平拼接4张图片
+        #     concatenated_image = np.concatenate(images_to_concat, axis=1)
+        #     plt.figure(figsize=(20, 5))
+        #     plt.imshow(concatenated_image, cmap="gray")
+        #     plt.axis('off')  # 去掉坐标轴
+        #     plt.show()
+        # else:
+        #     # 如果不足4张，显示所有可用的图片
+        #     u = pred_xstart_np[0, 0, :, :].T
+        #     plt.imshow(u, cmap="gray")
+        #     plt.axis('off')  # 去掉坐标轴
+        #     plt.show()
         return {"sample": sample, "pred_xstart": out["pred_xstart"]}
 
     def ddim_reverse_sample(
@@ -720,7 +744,10 @@ class GaussianDiffusion:
             eta=eta,
         ):
             final = sample
-        return final["sample"]
+        # return final["sample"]
+        # 画出final["pred_xstart"]图像
+        plt.imshow(final["pred_xstart"].cpu().numpy().T.squeeze(), cmap="gray")
+        return final["pred_xstart"]
 
     def ddim_sample_loop_progressive(
         self,
