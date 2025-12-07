@@ -7,6 +7,12 @@ from diffusion.resampler import *
 from main import CustomDataset
 from matplotlib import pyplot as plt
 
+
+BATCH_SIZE_TRAIN = 1
+N_EPOCHS = 400
+path ="./checkpoints"
+PATH = path+'/TDM.pt'
+
 def train(model, optimizer,data_loader1, loss_history):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     #1: set the model to training mode
@@ -62,27 +68,28 @@ def evaluate(model,epoch,path):
         img.append(x_clean.cpu().numpy())
     print('Generate for the epoch #'+str(epoch)+' result:')
     plt.rcParams['figure.figsize'] = [20, 20]
-    plt.figure()
-    f, axarr = plt.subplots(1,num_sample)
+    fig = plt.figure(frameon=False)
+    ax = plt.Axes(fig, [0., 0., 1., 1.])
+    ax.set_axis_off()
+    fig.add_axes(ax)
     for ind in range(num_sample):
-        axarr.imshow(x_clean[ind,0,:,:].cpu().numpy(), cmap='gray')
+        ax.imshow(x_clean[ind,0,:,:].cpu().numpy(), cmap='gray')
+    plt.savefig(path+'/epoch_'+str(epoch)+'_sample.png', bbox_inches='tight', pad_inches=0)
+    plt.close(fig)
     # plt.show()
     data = {"img":img}
     print(str(time.time()-aa))
     scipy.io.savemat(path+ 'test_example_epoch'+str(epoch)+'.mat',data)    
 
 
-BATCH_SIZE_TRAIN = 1
-N_EPOCHS = 100
-path ="D:\\0-nebula\\code\\2D-Medical-Denoising-Diffusion-Probabilistic-Model-\\checkpoints"
-PATH = path+'\\TDM.pt'
+
 params = {
     "batch_size": BATCH_SIZE_TRAIN,
     'pin_memory': True,
     "shuffle": True,
     'drop_last': False
 }
-data_path = 'D:\\0-nebula\\dataset\\ixi_paried\\t2_resized'
+data_path = 'E:\\nebula\\t2_resized'
 dataset = CustomDataset(data_path)
 train_loader = torch.utils.data.DataLoader(dataset, **params)
 
@@ -147,7 +154,7 @@ for epoch in range(0, N_EPOCHS):
     average_loss = train(model, optimizer, train_loader, train_loss_history)
     print('Execution time:', '{:5.2f}'.format(time.time() - start_time), 'seconds')
 
-    if epoch % 10 == 0:
+    if epoch % 20 == 0:
         evaluate(model,epoch,path)
         torch.save(model.state_dict(), PATH)
 
