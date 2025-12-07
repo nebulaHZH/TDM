@@ -1,7 +1,3 @@
-
-
-
-
 # 超参数配置
 from diffusion.respace import SpacedDiffusion
 import os
@@ -14,54 +10,52 @@ from main import CustomDataset, create_diffusion_model, create_network_model, ev
 from matplotlib import pyplot as plt
 import torch as th
 
-def sample_and_save_images(diffusion:SpacedDiffusion, model, num_images=4, image_size=256, save_path="outputs/samples.png", device="cuda"):
+def sample_and_save_images(diffusion:SpacedDiffusion, model, num_images=1, image_size=256, save_path="outputs/samples.png", device="cuda"):
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     model.eval()
-    # 生成起始噪声
-    shape = (num_images, 1, image_size, image_size)  # 灰度图像只有 1 个通道
-    start_noise = th.randn(shape, device=device)
-
-    # 使用 DDIM 采样方法进行确定性生成
-    model.eval()
     
-    with th.no_grad():
-        x_clean = diffusion.p_sample_loop(
-            model,
-            shape,
-            noise=start_noise,
-            device=device,
-            clip_denoised=True,
-            progress=True
-        )
+    # 单张图像生成
+    for i in range(num_images):
+        # 生成起始噪声 (单张图像)
+        shape = (1, 1, image_size, image_size)  # 灰度图像只有 1 个通道
+        start_noise = th.randn(shape, device=device)
 
-   
-    plt.rcParams['figure.figsize'] = [20, 5]
-
-    # 获取原来的图像并拼接
-    images:list[torch.Tensor] = []
-    for ind in range(num_images):
-        # 图像转置
-        img = x_clean[ind,0,:,:].cpu().numpy().T
-        images.append(img)
+        # 使用 DDIM 采样方法进行确定性生成
+        model.eval()
         
-    # 水平拼接所有的图像
-    all_in_one_images = np.concatenate(images, axis=1)
+        with th.no_grad():
+            x_clean = diffusion.p_sample_loop(
+                model,
+                shape,
+                noise=start_noise,
+                device=device,
+                clip_denoised=True,
+                progress=True
+            )
 
-    for i in range(all_in_one_images.shape[0]):
-        save_image(all_in_one_images[i], save_path=f"{save_path[:-4]}_{i+1:03d}.png")
-
-    print(f"生成样本已经保存到：{save_path}")
-
+        # 处理单张图像
+        img = x_clean[0, 0, :, :].cpu().numpy().T
+         
+        # 保存单张图像
+        single_save_path = f"{save_path[:-4]}_{i+1:03d}.png"
+        plt.figure(figsize=(8, 8))
+        plt.imshow(img, cmap='gray')
+        plt.axis('off')
+        plt.tight_layout()
+        plt.savefig(single_save_path, dpi=150,bbox_inches='tight', pad_inches=0)
+        plt.close()
+        
+        print(f"第 {i+1} 张生成样本已保存到：{single_save_path}")
 
 BATCH_SIZE_TRAIN = 1  # 优化后的batch size
 image_size = 256
-img_size = (image_size, image_size)
+image_size = (image_size, image_size)
 spacing = (1, 1)
 channels = 1
 # 扩散模型参数
 diffusion_steps = 1000
 learn_sigma = True
-timestep_respacing = 'ddim50'
+timestep_respacing = 'ddim100'  # 增加采样步数以提高图像质量
 
 # 设备配置
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -99,11 +93,11 @@ save_path = "outputs/"
 if os.path.exists(save_path) == False:
     os.mkdir(save_path)
 # 加载检查点
-checkpoint = torch.load('checkpoints/checkpoint_epoch_450.pt',weights_only=False)
+checkpoint = torch.load('checkpoints/checkpoint_epoch_50.pt',weights_only=False)
 model.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 model.eval()
-#批量生成图像
+# 批量生成图像（每次生成一张）
 for num in range(nums):
     sample_and_save_images(
         diffusion=diffusion,

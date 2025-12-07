@@ -401,8 +401,8 @@ class SwinVITModel(nn.Module):
         num_classes=None,
         use_checkpoint=False,
         use_fp16=False,
-        num_heads=1,
-        window_size = 4,
+        num_heads=[4, 4, 4, 8, 16, 16],
+        window_size=[[4, 4], [4, 4], [4, 4], [8, 8], [8, 8], [4, 4]],
         num_head_channels=-1,
         num_heads_upsample=-1,
         use_scale_shift_norm=False,
@@ -429,7 +429,7 @@ class SwinVITModel(nn.Module):
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
         self.num_heads_upsample = num_heads_upsample
-        self.sample_kernel = sample_kernel[0]
+        self.sample_kernel = sample_kernel
         spatial_dims = dims
         drop_path = [x.item() for x in th.linspace(0, dropout, len(channel_mult))]
         
@@ -510,7 +510,7 @@ class SwinVITModel(nn.Module):
                         )
                         if resblock_updown
                         else Downsample(
-                            ch, conv_resample,self.sample_kernel[level], dims=dims, out_channels=out_ch
+                            ch, conv_resample, self.sample_kernel[level], dims=dims, out_channels=out_ch
                         )
                     )
                 )

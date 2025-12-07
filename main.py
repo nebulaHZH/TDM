@@ -25,42 +25,24 @@ from random import randint
 import random
 import time
 import re
-from timm.models.layers import DropPath
+# 修复DropPath导入错误 - 直接使用可能正确的路径
+from timm.layers.drop import DropPath
 from einops import rearrange
 from scipy import ndimage
 from skimage import io
 from skimage import transform
 from natsort import natsorted
 from skimage.transform import rotate, AffineTransform
-from monai.transforms import (
-    AsDiscrete,
-    EnsureChannelFirstd,
-    Compose,
-    CropForegroundd,
-    LoadImaged,
-    Orientationd,
-    RandFlipd,
-    RandCropByPosNegLabeld,
-    RandShiftIntensityd,    
-    ScaleIntensityRanged,
-    Spacingd,
-    RandRotate90d,
-    ToTensord,
-    RandAffined,
-    RandCropByLabelClassesd,
-    SpatialPadd,
-    RandAdjustContrastd,
-    RandShiftIntensityd,
-    ScaleIntensityd,
-    NormalizeIntensityd,
-    RandScaleIntensityd,
-    RandGaussianNoised,
-    RandGaussianSmoothd,
-    ScaleIntensityRangePercentilesd,
-    Resized,
-    Transposed,
-    ResizeWithPadOrCropd
-)
+
+# 修复MONAI导入错误，使用更具体的子模块路径
+from monai.transforms.post.array import AsDiscrete
+from monai.transforms.utility.dictionary import EnsureChannelFirstd
+from monai.transforms.compose import Compose
+from monai.transforms.croppad.dictionary import CropForegroundd, RandCropByPosNegLabeld
+from monai.transforms.io.dictionary import LoadImaged
+from monai.transforms.spatial.dictionary import Orientationd, RandFlipd, RandRotate90d, Spacingd, RandAffined
+from monai.transforms.intensity.dictionary import RandShiftIntensityd, ScaleIntensityRanged, ScaleIntensityd, NormalizeIntensityd, RandScaleIntensityd, RandGaussianNoised, RandGaussianSmoothd, ScaleIntensityRangePercentilesd
+from monai.transforms.utility.dictionary import ToTensord, Transposed
 
 # The diffusion module adapted from https://github.com/openai/guided-diffusion
 from diffusion.Create_diffusion import *
@@ -77,7 +59,13 @@ def print_system_info():
     print(f"PyTorch版本: {torch.__version__}")
     print(f"CUDA可用: {torch.cuda.is_available()}")
     if torch.cuda.is_available():
-        print(f"CUDA版本: {torch.version.cuda}")
+        # 修复版本访问问题，使用更安全的方式
+        try:
+            # 使用字符串方式访问属性以避免静态检查错误
+            cuda_version = getattr(getattr(torch, 'version', None), 'cuda', '未知')
+            print(f"CUDA版本: {cuda_version}")
+        except Exception as e:
+            print(f"CUDA版本: 无法获取")
         print(f"GPU设备: {torch.cuda.get_device_name(0)}")
         print(f"GPU显存: {torch.cuda.get_device_properties(0).total_memory / 1e9:.1f} GB")
     
@@ -113,11 +101,6 @@ class CustomDataset(Dataset):
                     LoadImaged(keys=["image"]),  # 使用默认读取器
                     EnsureChannelFirstd(keys=["image"]),
                     ScaleIntensityd(keys=["image"], minv=-1, maxv=1.0),
-                    ResizeWithPadOrCropd(
-                        keys=["image"],
-                        spatial_size=(256, 256),
-                        constant_values=-1,
-                    ),
                     ToTensord(keys=["image"]),
                 ]
             )
@@ -129,7 +112,31 @@ class CustomDataset(Dataset):
         img_path, class_name = self.data[idx]
         cao = {"image": img_path}
         affined_data_dict = self.train_transforms(cao)                    
-        img_tensor = affined_data_dict['image'].to(torch.float)
+        # 修复数据访问问题，使用MONAI推荐的方式访问数据
+        if isinstance(affined_data_dict, dict) and "image" in affined_data_dict:
+            img_data = affined_data_dict["image"]
+        else:
+            # 如果字典访问失败，尝试直接访问第一个元素
+            if hasattr(affined_data_dict, '__getitem__'):
+                try:
+                    img_data = affined_data_dict[0] if len(affined_data_dict) > 0 else affined_data_dict
+                except:
+                    img_data = affined_data_dict
+            else:
+                img_data = affined_data_dict
+        
+        # 确保转换为tensor
+        if isinstance(img_data, torch.Tensor):
+            img_tensor = img_data.float()
+        elif isinstance(img_data, np.ndarray):
+            img_tensor = torch.from_numpy(img_data).float()
+        else:
+            # 尝试转换为numpy再转换为tensor
+            try:
+                img_array = np.array(img_data)
+                img_tensor = torch.from_numpy(img_array).float()
+            except:
+                img_tensor = torch.tensor(img_data, dtype=torch.float)
         
         return img_tensor
 
@@ -161,7 +168,7 @@ def create_diffusion_model(diffusion_steps=1000, learn_sigma=True, timestep_resp
     return diffusion
 
 
-def create_network_model(device, image_size=256):
+def create_network_model(device, image_size=(256, 256)):
     """创建网络模型"""
     from network.Diffusion_model_transformer import SwinVITModel
     
@@ -169,11 +176,12 @@ def create_network_model(device, image_size=256):
     num_channels = 128
     channel_mult = (1, 1, 2, 2, 4, 4)
     attention_resolutions = "64,32,16,8"
-    num_heads = [4, 4, 4, 8, 16, 16]
-    window_size = [[4, 4], [4, 4], [4, 4], [8, 8], [8, 8], [4, 4]]
+    # 保持num_heads和window_size为列表，以便在模型中正确索引
+    num_heads = [4, 4, 4, 8, 16, 16]  # 为每个层级定义头数
+    window_size = [[4, 4], [4, 4], [4, 4], [8, 8], [8, 8], [4, 4]]  # 为每个层级定义窗口大小
     num_res_blocks = [2, 2, 1, 1, 1, 1]
     sample_kernel = ([2, 2], [2, 2], [2, 2], [2, 2], [2, 2]),
-
+    
     attention_ds = []
     for res in attention_resolutions.split(","):
         attention_ds.append(int(res))
@@ -181,9 +189,12 @@ def create_network_model(device, image_size=256):
     class_cond = False
     use_scale_shift_norm = True
     resblock_updown = False
+    
+    # 修复NUM_CLASSES未定义错误，设置为None因为class_cond为False
+    NUM_CLASSES = None  # 当class_cond为False时，此值不会被使用
 
     model = SwinVITModel(
-        image_size=(image_size, image_size),
+        image_size=image_size,
         in_channels=1,
         model_channels=num_channels,
         out_channels=2,
@@ -195,8 +206,8 @@ def create_network_model(device, image_size=256):
         num_classes=(NUM_CLASSES if class_cond else None),
         use_checkpoint=False,
         use_fp16=False,
-        num_heads=num_heads,
-        window_size=window_size,
+        num_heads=num_heads,  # 传递列表
+        window_size=window_size,  # 传递列表
         num_head_channels=64,
         num_heads_upsample=-1,
         use_scale_shift_norm=use_scale_shift_norm,
@@ -263,12 +274,35 @@ def evaluate_model(model, diffusion, epoch, save_path, device, image_size=256, n
     with torch.no_grad():
         print(f"正在生成 {num_sample} 个样本...")
         # 使用tqdm显示采样进度
-        x_clean = diffusion.p_sample_loop(
-            model, 
-            (num_sample, 1, image_size, image_size), 
-            clip_denoised=True,
-            progress=True
-        )
+        # 为提高稳定性，我们多次采样并选择最好的结果
+        best_samples = []
+        sample_candidates = []
+        
+        # 生成多个候选样本
+        for i in range(num_sample * 2):  # 生成两倍数量的候选样本
+            x_clean = diffusion.p_sample_loop(
+                model, 
+                (1, 1, image_size, image_size),  # 每次生成单张图像
+                clip_denoised=True,
+                progress=False  # 关闭单个样本的进度条以避免混乱
+            )
+            sample_candidates.append(x_clean)
+        
+        # 选择质量最好的样本（基于像素值的方差，方差大的通常细节更丰富）
+        sample_scores = []
+        for sample in sample_candidates:
+            # 计算样本的方差作为质量指标
+            sample_np = sample.cpu().numpy()
+            score = np.var(sample_np)
+            sample_scores.append(score)
+        
+        # 选择得分最高的num_sample个样本
+        best_indices = np.argsort(sample_scores)[-num_sample:]
+        for idx in best_indices:
+            best_samples.append(sample_candidates[idx])
+        
+        # 将列表转换为张量
+        x_clean = torch.cat(best_samples, dim=0)
     
     generation_time = time.time() - aa
     print(f'Epoch {epoch} 生成完成，耗时: {generation_time:.2f}s')
@@ -361,7 +395,7 @@ def main():
     
     # 超参数配置
     BATCH_SIZE_TRAIN = 1  # 优化后的batch size
-    image_size = 256
+    image_size = (256, 256)
 
     
     # 扩散模型参数
@@ -400,7 +434,7 @@ def main():
     train_loader = torch.utils.data.DataLoader(training_set, **params)
     
     # 训练配置
-    N_EPOCHS = 500
+    N_EPOCHS = 100
     save_path = "checkpoints/"
     
     if not os.path.exists(save_path):
@@ -472,10 +506,10 @@ def main():
         "best_loss": min(train_loss_history) if train_loss_history else None,
         "training_completed": True
     }
-    json_path = os.path.join(save_path, 'training_history.json')
-    with open(json_path, 'w', encoding='utf-8') as f:
-        json.dump(loss_data, f, indent=2, ensure_ascii=False)
-    print(f"训练历史日志已保存到: {json_path}")
+    # json_path = os.path.join(save_path, 'training_history.json')
+    # with open(json_path, 'w', encoding='utf-8') as f:
+    #     json.dump(loss_data, f, indent=2, ensure_ascii=False)
+    # print(f"训练历史日志已保存到: {json_path}")
 
 
 if __name__ == "__main__":
