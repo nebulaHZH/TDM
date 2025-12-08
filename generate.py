@@ -88,12 +88,12 @@ params = {
 train_loader = torch.utils.data.DataLoader(training_set, **params)
 
 # 采样配置
-nums = 100
+nums = 200
 save_path = "outputs/"
 if os.path.exists(save_path) == False:
     os.mkdir(save_path)
 # 加载检查点
-checkpoint = torch.load('checkpoints/checkpoint_epoch_50.pt',weights_only=False)
+checkpoint = torch.load('checkpoints/TDM.pt',weights_only=False)
 model.load_state_dict(checkpoint['model_state_dict'])
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 model.eval()

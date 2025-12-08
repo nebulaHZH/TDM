@@ -194,25 +194,20 @@ def create_network_model(device, image_size=(256, 256)):
     NUM_CLASSES = None  # 当class_cond为False时，此值不会被使用
 
     model = SwinVITModel(
-        image_size=image_size,
+        image_size=(image_size,image_size),
         in_channels=1,
-        model_channels=num_channels,
+        model_channels=128,
         out_channels=2,
-        sample_kernel=sample_kernel,
-        num_res_blocks=num_res_blocks,
+        sample_kernel=([2,2],[2,2],[2,2],[2,2],[2,2]),
+        num_res_blocks=[2,2,1,1,1,1],
         attention_resolutions=tuple(attention_ds),
         dropout=0,
-        channel_mult=channel_mult,
-        num_classes=(NUM_CLASSES if class_cond else None),
-        use_checkpoint=False,
-        use_fp16=False,
-        num_heads=num_heads,  # 传递列表
-        window_size=window_size,  # 传递列表
-        num_head_channels=64,
-        num_heads_upsample=-1,
-        use_scale_shift_norm=use_scale_shift_norm,
-        resblock_updown=resblock_updown,
-        use_new_attention_order=False,
+        channel_mult=(1, 1, 2, 2, 4, 4),
+        num_classes=None,
+        num_heads=[4,4,4,8,16,16],
+        window_size = [[4,4],[4,4],[4,4],[8,8],[8,8],[4,4]],
+        use_scale_shift_norm=True,
+        resblock_updown=False,
     ).to(device)
     
     return model
